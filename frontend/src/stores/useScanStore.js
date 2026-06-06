@@ -94,7 +94,7 @@ initializeSocketListeners: () => {
     try {
       const token = localStorage.getItem('token'); 
       
-      await fetch(
+      const response = await fetch(
   `${import.meta.env.VITE_API_URL}/scans/${id}`,
   {
     headers: {
@@ -102,6 +102,8 @@ initializeSocketListeners: () => {
     },
   }
 );
+
+
       
       if (!response.ok) throw new Error('Failed to fetch scan details');
       
@@ -156,7 +158,7 @@ initializeSocketListeners: () => {
     try {
       const token = localStorage.getItem('token'); 
 
-      await fetch(
+      const response = await fetch(
   `${import.meta.env.VITE_API_URL}/scans`,
   {
     headers: {
@@ -165,7 +167,13 @@ initializeSocketListeners: () => {
   }
 );
 
-      if (!response.ok) throw new Error('Failed to fetch data');
+if (!response.ok) {
+  throw new Error("Failed to fetch data");
+}
+
+const data = await response.json();
+
+      
       
       const data = await response.json();
       
