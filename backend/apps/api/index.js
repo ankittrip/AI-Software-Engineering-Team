@@ -18,6 +18,15 @@ dotenv.config({ path: "../../.env" });
 const app = express();
 const PORT = process.env.PORT || 8000;
 
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://ai-software-engineering-team.vercel.app",
+  "https://ai-software-engineering-team-fuxy.vercel.app",
+  "https://ai-software-engineering-team-fuxy-mqsm6sxt7-ankittrips-projects.vercel.app",
+];
+
+
 // ==========================================
 // HTTP + SOCKET SERVER
 // ==========================================
@@ -26,7 +35,7 @@ const server = http.createServer(app);
 
 export const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -40,7 +49,7 @@ app.use(helmet());
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: allowedOrigins,
     credentials: true,
   })
 );
