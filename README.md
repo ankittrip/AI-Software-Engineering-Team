@@ -20,8 +20,6 @@ AI-powered multi-agent repository analysis platform that performs architecture r
 
 ## Architecture
 
-## Architecture
-
 ```mermaid
 flowchart TD
 
