@@ -1,0 +1,10 @@
+{
+  "name": "github-scraper",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "octokit": "^5.0.5"
+  }
+}

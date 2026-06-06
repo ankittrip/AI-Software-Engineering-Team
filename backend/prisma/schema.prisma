@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("ENGINEER")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  scans     Scan[]
+}
+
+model Scan {
+  id                  String     @id @default(uuid())
+  repoUrl             String
+  repoOwner           String?
+  repoName            String?
+  defaultBranch       String?
+  status              ScanStatus @default(PENDING)
+  errorMessage        String?
+  totalFilesScanned   Int        @default(0)
+  scanDurationMs      Int?
+  overallScore        Int?
+  riskLevel           RiskLevel?
+  summary             String?
+  strengths           Json?
+  weaknesses          Json?
+  recommendations     Json?
+  architectureMetrics Json?
+  securityFindings    Json?
+  codeReviewNotes     Json?
+  performanceData     Json?
+  dependencyData      Json?
+  techStack           Json?
+  userId              String?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  user                User?      @relation(fields: [userId], references: [id])
+
+  @@index([repoUrl])
+  @@index([status])
+  @@index([createdAt])
+  @@index([riskLevel])
+}
+
+enum ScanStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
