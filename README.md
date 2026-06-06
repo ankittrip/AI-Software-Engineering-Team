@@ -10,9 +10,22 @@ AI-powered multi-agent repository analysis platform that performs architecture r
 
 ## Live Demo
 
-Frontend: Coming Soon
+Frontend: https://ai-software-engineering-team.vercel.app
 
-Backend API: Coming Soon
+Backend API: https://ai-software-engineering-api.onrender.com/api/health
+
+
+## Production Stack
+
+Frontend → Vercel
+
+Backend API → Render
+
+Background Worker → Railway
+
+Queue → Redis + BullMQ
+
+Database → PostgreSQL + Prisma
 
 
 ## Features
