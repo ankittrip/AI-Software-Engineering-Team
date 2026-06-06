@@ -1,12 +1,14 @@
 import { create } from 'zustand';
 import { io } from 'socket.io-client';
 
-// 🔌 Frontend ko Backend ke WebSockets se connect kiya
-// Apna backend URL yahan verify kar lijiye
-const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:8000', {
-  autoConnect: true,
-  withCredentials: true,
-});
+const socket = io(
+  import.meta.env.VITE_SOCKET_URL ||
+  "https://ai-software-engineering-api.onrender.com",
+  {
+    autoConnect: true,
+    withCredentials: true,
+  }
+);
 
 export const useScanStore = create((set, get) => ({
   isScanning: false,
@@ -92,11 +94,14 @@ initializeSocketListeners: () => {
     try {
       const token = localStorage.getItem('token'); 
       
-      const response = await fetch(`http://localhost:8000/api/scans/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}` 
-        }
-      });
+      await fetch(
+  `${import.meta.env.VITE_API_URL}/scans/${id}`,
+  {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }
+);
       
       if (!response.ok) throw new Error('Failed to fetch scan details');
       
@@ -151,11 +156,14 @@ initializeSocketListeners: () => {
     try {
       const token = localStorage.getItem('token'); 
 
-      const response = await fetch('http://localhost:8000/api/scans', {
-        headers: {
-          'Authorization': `Bearer ${token}` 
-        }
-      });
+      await fetch(
+  `${import.meta.env.VITE_API_URL}/scans`,
+  {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }
+);
 
       if (!response.ok) throw new Error('Failed to fetch data');
       

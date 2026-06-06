@@ -19,11 +19,14 @@ export const Register = () => {
     setIsSubmitting(true);
 
     try {
-      const res = await fetch('http://localhost:8000/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
+      const res = await fetch(
+  `${import.meta.env.VITE_API_URL}/auth/register`,
+  {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(formData),
+  }
+);
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.error || 'Registration failed');
