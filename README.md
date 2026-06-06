@@ -1,6 +1,12 @@
 # AI Software Engineering Team
 
-AI-powered multi-agent repository analysis platform that performs architecture review, security auditing, code quality analysis, dependency inspection, and performance evaluation for GitHub repositories.
+AI-powered multi-agent repository analysis platform that performs architecture review, security auditing, code quality assessment, dependency inspection, and performance evaluation for GitHub repositories.
+
+🚀 Multi-Agent AI
+⚡ BullMQ Queue Processing
+🔴 Redis Caching
+🗄️ PostgreSQL + Prisma
+📡 Real-Time Updates with Socket.IO
 
 ## Features
 
