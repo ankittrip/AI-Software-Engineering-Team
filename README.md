@@ -59,6 +59,32 @@ K[Socket.IO] --> J
 D --> K
 ```
 
+## Screenshots
+
+### Dashboard
+
+<img width="1654" height="824" alt="image" src="https://github.com/user-attachments/assets/99bb0cc9-9423-4aff-864e-5b7649bdee1f" />
+
+
+### New Scan
+
+<img width="1666" height="820" alt="image" src="https://github.com/user-attachments/assets/44ea52f0-7628-40e2-81f5-3647f17f3db9" />
+
+
+### Scan Results
+
+<img width="1675" height="825" alt="image" src="https://github.com/user-attachments/assets/90e93830-5303-499b-a41b-12e850630d89" />
+<img width="1652" height="817" alt="image" src="https://github.com/user-attachments/assets/3b1eb5bb-efa6-42ff-bde7-b3183c495788" />
+
+
+
+
+### Scan History
+
+<img width="1655" height="820" alt="image" src="https://github.com/user-attachments/assets/1a7838e8-9e3f-4662-ba04-593f087bbf48" />
+
+
+
 ## Tech Stack
 
 ### Frontend
