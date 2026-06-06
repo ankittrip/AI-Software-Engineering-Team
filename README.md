@@ -20,24 +20,40 @@ AI-powered multi-agent repository analysis platform that performs architecture r
 
 ## Architecture
 
-Frontend (React + Zustand)
-↓
-Express API
-↓
-BullMQ Queue
-↓
-Worker Service
-├── Architecture Agent
-├── Security Agent
-├── Code Review Agent
-├── Performance Agent
-├── Dependency Agent
-↓
-Orchestrator Agent
-↓
-PostgreSQL + Prisma
-↓
-Redis Cache
+## Architecture
+
+```mermaid
+flowchart TD
+
+A[GitHub Repository URL] --> B[Express API]
+
+B --> C[BullMQ Queue]
+
+C --> D[Worker Service]
+
+D --> E1[Architecture Agent]
+D --> E2[Security Agent]
+D --> E3[Code Review Agent]
+D --> E4[Performance Agent]
+D --> E5[Dependency Agent]
+
+E1 --> F[AI Orchestrator]
+E2 --> F
+E3 --> F
+E4 --> F
+E5 --> F
+
+F --> G[(Redis Cache)]
+F --> H[(PostgreSQL)]
+
+H --> I[Scan History]
+G --> I
+
+I --> J[React Dashboard]
+
+K[Socket.IO] --> J
+D --> K
+```
 
 ## Tech Stack
 
