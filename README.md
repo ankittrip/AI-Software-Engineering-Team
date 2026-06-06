@@ -8,6 +8,13 @@ AI-powered multi-agent repository analysis platform that performs architecture r
 🗄️ PostgreSQL + Prisma
 📡 Real-Time Updates with Socket.IO
 
+## Live Demo
+
+Frontend: Coming Soon
+
+Backend API: Coming Soon
+
+
 ## Features
 
 * Repository scanning from GitHub URL
