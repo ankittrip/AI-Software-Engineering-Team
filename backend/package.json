@@ -8,10 +8,13 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:api": "npm run dev --workspace=apps/api",
-    "dev:worker": "npm run dev --workspace=apps/worker",
-    "dev": "concurrently \"npm run dev:api\" \"npm run dev:worker\""
-  },
+  "dev:api": "npm run dev --workspace=apps/api",
+  "dev:worker": "npm run dev --workspace=apps/worker",
+  "dev": "concurrently \"npm run dev:api\" \"npm run dev:worker\"",
+
+  "start:api": "node apps/api/index.js",
+  "start:worker": "node apps/worker/index.js"
+},
   "devDependencies": {
     "concurrently": "^8.2.0",
     "prisma": "^6.19.3"
