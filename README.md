@@ -79,6 +79,24 @@ K[Socket.IO] --> J
 D --> K
 ```
 
+## Architecture Overview
+
+1. User submits a GitHub repository URL.
+2. Express API creates a BullMQ scan job.
+3. Worker consumes the job and extracts repository metadata.
+4. Five AI agents execute in parallel:
+   - Architecture Agent
+   - Security Agent
+   - Code Review Agent
+   - Dependency Agent
+   - Performance Agent
+5. AI Orchestrator aggregates findings.
+6. Results are stored in PostgreSQL.
+7. Redis caches scan results.
+8. Socket.IO streams real-time progress updates.
+9. React dashboard displays reports and scan history.
+
+
 ## Screenshots
 
 ### Dashboard
