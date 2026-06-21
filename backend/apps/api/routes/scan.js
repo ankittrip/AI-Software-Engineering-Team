@@ -6,19 +6,11 @@ import { prisma } from "../../../packages/prisma/index.js";
 
 const router = express.Router();
 
-// ==========================================
-// GitHub URL Validator
-// ==========================================
-
-const githubRepoRegex = /^https:\/\/github\.com\/[^/]+\/[^/]+\/?$/;
-
-// ==========================================
-// 1. POST: Queue New Scan
-// ==========================================
+const githubRepoRegex = /^https:\/\/github\.com\/[^/]+\/[^/]+\/?/;
 
 router.post("/new", verifyToken, async (req, res) => {
   try {
-    const { repoUrl } = req.body;
+    const { repoUrl, skipCache = true } = req.body;
     const userId = req.user.userId || req.user.id;
 
     if (!repoUrl) {
@@ -29,34 +21,46 @@ router.post("/new", verifyToken, async (req, res) => {
       return res.status(400).json({ error: "Invalid GitHub repository URL" });
     }
 
-    // Generate deterministic job ID to prevent duplicate scans
-    const jobId = crypto
+    const baseJobId = crypto
       .createHash("sha256")
       .update(`${userId}-${repoUrl}`)
       .digest("hex");
 
-    const existingJob = await scanQueue.getJob(jobId);
+    const jobId = skipCache ? `${baseJobId}-${Date.now()}` : baseJobId;
 
-    if (existingJob) {
-      const state = await existingJob.getState();
+    if (!skipCache) {
+      const existingJob = await scanQueue.getJob(jobId);
 
-      // Block if scan is already in progress
-      if (state === "waiting" || state === "active") {
-        return res.status(409).json({
-          error: "A scan for this repository is already running.",
-        });
-      }
+      if (existingJob) {
+        const state = await existingJob.getState();
 
-      // Remove stale completed or failed jobs before re-queuing
-      if (state === "completed" || state === "failed") {
-        await existingJob.remove();
+        if (state === "waiting" || state === "active") {
+          return res.status(409).json({
+            error: "A scan for this repository is already running.",
+          });
+        }
+
+        if (state === "completed" || state === "failed") {
+          await existingJob.remove();
+        }
       }
     }
 
+    console.log("[API BODY]", req.body);
+    console.log("[SKIP CACHE]", skipCache);
+
     const job = await scanQueue.add(
       "github-scan-job",
-      { repoUrl, userId },
-      { jobId, removeOnComplete: 50, removeOnFail: 20 }
+      {
+        repoUrl,
+        userId,
+        skipCache,
+      },
+      {
+        jobId,
+        removeOnComplete: 50,
+        removeOnFail: 20,
+      }
     );
 
     console.log(`[API] Scan queued. Job ID: ${job.id}`);
@@ -72,10 +76,6 @@ router.post("/new", verifyToken, async (req, res) => {
   }
 });
 
-// ==========================================
-// 2. GET: Dashboard Stats + History
-// ==========================================
-
 router.get("/", verifyToken, async (req, res) => {
   try {
     const userId = req.user.userId || req.user.id;
@@ -83,6 +83,16 @@ router.get("/", verifyToken, async (req, res) => {
     const userScans = await prisma.scan.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        repoUrl: true,
+        repoOwner: true,
+        repoName: true,
+        status: true,
+        overallScore: true,
+        riskLevel: true,
+        createdAt: true,
+      }
     });
 
     const completedScans = userScans.filter(
@@ -117,10 +127,6 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
-// ==========================================
-// 3. GET: Single Scan Report
-// ==========================================
-
 router.get("/:id", verifyToken, async (req, res) => {
   try {
     const userId = req.user.userId || req.user.id;
@@ -131,7 +137,6 @@ router.get("/:id", verifyToken, async (req, res) => {
       return res.status(404).json({ error: "Scan not found" });
     }
 
-    // Ensure the scan belongs to the requesting user
     if (scan.userId !== userId) {
       return res.status(403).json({ error: "Unauthorized access to this scan" });
     }

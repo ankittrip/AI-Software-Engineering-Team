@@ -1,50 +1,60 @@
+import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
+
 import { AppLayout } from './components/layout/AppLayout';
 import { AuthLayout } from './components/layout/AuthLayout';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 
-import { Dashboard } from './features/dashboard/Dashboard';
-import { Settings } from './features/settings/Settings';
-import { NewScan } from './features/scans/NewScan'; 
-import { ScanResults } from './features/scans/ScanResults';
-import { ScanHistory } from './features/scans/ScanHistory';
-import { Login } from './features/auth/Login';
-import { Register } from './features/auth/Register';
+const Dashboard = lazy(() => import('./features/dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
+const Settings = lazy(() => import('./features/settings/Settings').then(m => ({ default: m.Settings })));
+const NewScan = lazy(() => import('./features/scans/NewScan').then(m => ({ default: m.NewScan })));
+const ScanResults = lazy(() => import('./features/scans/ScanResults').then(m => ({ default: m.ScanResults })));
+const ScanHistory = lazy(() => import('./features/scans/ScanHistory').then(m => ({ default: m.ScanHistory })));
+const Login = lazy(() => import('./features/auth/Login').then(m => ({ default: m.Login })));
+const Register = lazy(() => import('./features/auth/Register').then(m => ({ default: m.Register })));
+
+const PageLoader = () => (
+  <div className="flex h-screen w-full items-center justify-center bg-gray-900">
+    <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
+  </div>
+);
 
 function App() {
   return (
     <>
       <Toaster position="top-right" richColors theme="dark" />
-      <Routes>
-        
-        {/* PUBLIC ROUTES */}
-        <Route element={<AuthLayout />}>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-        </Route>
+      
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          
+          {/* PUBLIC ROUTES */}
+          <Route element={<AuthLayout />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+          </Route>
 
-        {/* 🔒 PROTECTED ROUTES */}
-        <Route 
-          path="/" 
-          element={
-            <ProtectedRoute>
-              <AppLayout />
-            </ProtectedRoute>
-          }
-        >
-          {/* Everything inside here is wrapped by the Sidebar and is now SECURE */}
-          <Route index element={<Dashboard />} />
-          <Route path="scans/new" element={<NewScan />} />
-          <Route path="scans/results/:id" element={<ScanResults />} />
-          <Route path="scans/history" element={<ScanHistory />} />
-          <Route path="settings" element={<Settings />} />
-        </Route>
+          {/* PROTECTED ROUTES */}
+          <Route 
+            path="/" 
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Dashboard />} />
+            <Route path="scans/new" element={<NewScan />} />
+            <Route path="scans/results/:id" element={<ScanResults />} />
+            <Route path="scans/history" element={<ScanHistory />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
 
-        {/* CATCH ALL - Agar koi random URL daale toh usko wapas sahi jagah bhej do */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+          {/* CATCH ALL */}
+          <Route path="*" element={<Navigate to="/" replace />} />
 
-      </Routes>
+        </Routes>
+      </Suspense>
     </>
   );
 }

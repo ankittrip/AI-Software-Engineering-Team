@@ -1,11 +1,9 @@
+import { getHistoricalArchitectureContext } from "../rag/getHistoricalArchitectureContext.js";
+
 export const runArchitectureAgent = async (repoContext) => {
   console.log("[Architecture Agent] Starting analysis...");
 
   try {
-    // =====================================
-    // STEP 1: Rule-Based Detection
-    // =====================================
-
     const dependencies = {
       ...(repoContext.packageJson?.dependencies || {}),
       ...(repoContext.packageJson?.devDependencies || {}),
@@ -44,12 +42,33 @@ export const runArchitectureAgent = async (repoContext) => {
     console.log(`[Architecture Agent] Tech stack: ${techStack.join(", ")}`);
     console.log(`[Architecture Agent] Pattern: ${architecturePattern}`);
 
-    // =====================================
-    // STEP 2: AI Analysis
-    // =====================================
+    const fileContentsContext = (repoContext.importantFiles || [])
+      .slice(0, 5)
+      .map((f) => `--- File: ${f.path} ---\n${f.content.substring(0, 1000)}`)
+      .join("\n\n");
+
+    let historicalIssues = "No previous architecture issues found.";
+    let pastArchitectureContext = [];
+    
+    try {
+      const pastContext = await getHistoricalArchitectureContext(repoContext.repoUrl);
+      if (pastContext && pastContext.length > 0) {
+        historicalIssues = pastContext.map((issue) => `- ${issue.finding}`).join("\n");
+        pastArchitectureContext = pastContext;
+        console.log(`[Architecture RAG] Found ${pastContext.length} past issues`);
+      }
+    } catch (error) {
+      console.log("[Architecture RAG] Skipped:", error.message);
+    }
 
     const prompt = `
 You are a Senior Software Architect.
+
+HISTORICAL CONTEXT (Past Architecture Issues from this repo):
+${historicalIssues}
+
+TASK:
+Analyze the repository. If a past issue is still present, set "isRecurring": true. If new, set "isRecurring": false.
 
 Detected Facts:
 
@@ -59,24 +78,33 @@ ${techStack.join(", ")}
 Architecture Pattern:
 ${architecturePattern}
 
-Repository Files:
-${files.slice(0, 20).join("\n")}
+Key Repository File Snippets:
+${fileContentsContext}
 
 Generate ONLY JSON:
-
 {
-  "architecturalObservations": [],
+  "architectureScore": number, 
+  "architecturalObservations": [
+    {
+      "observation": "",
+      "isRecurring": false
+    }
+  ],
   "strengths": [],
-  "risks": []
+  "risks": [
+    {
+      "description": "",
+      "isRecurring": false
+    }
+  ]
 }
 
 Rules:
-
-- Do not repeat detected technologies.
-- Focus on architecture quality.
+- Calculate an architectureScore between 0 and 100 based on code quality and patterns.
+- Focus on architecture quality, modularity, and tight-coupling.
 - No guessing.
 - Evidence-based observations only.
-- JSON only.
+- Output pure JSON only.
 `;
 
     const response = await fetch(
@@ -92,7 +120,7 @@ Rules:
           messages: [
             {
               role: "system",
-              content: "You are a strict Software Architect. Output JSON only.",
+              content: "You are a strict Software Architect. Output pure JSON only.",
             },
             { role: "user", content: prompt },
           ],
@@ -111,20 +139,29 @@ Rules:
     const rawContent = data?.choices?.[0]?.message?.content;
     const aiResult = JSON.parse(rawContent);
 
+    console.log("[Architecture DEBUG] Score:", aiResult.architectureScore);
+    console.log(
+      "[Architecture DEBUG] risks:",
+      JSON.stringify(aiResult.risks).substring(0, 100) + "..."
+    );
+
     return {
+      architectureScore: aiResult.architectureScore || 80,
       techStack,
       architecturePattern,
       architecturalObservations: aiResult.architecturalObservations || [],
       strengths: aiResult.strengths || [],
       risks: aiResult.risks || [],
+      historicalContext: pastArchitectureContext,
     };
   } catch (error) {
     console.error(`[Architecture Agent] Failed: ${error.message}`);
 
     return {
+      architectureScore: 50,
       techStack: [],
       architecturePattern: "UNKNOWN",
-      architecturalObservations: [error.message],
+      architecturalObservations: [{ observation: error.message, isRecurring: false }],
       strengths: [],
       risks: [],
     };

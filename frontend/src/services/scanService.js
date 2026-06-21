@@ -2,7 +2,7 @@ import axios from "axios";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
-  "https://ai-software-engineering-api.onrender.com/api";
+  "http://localhost:5173";
 
 export const analyzeRepository = async (repoUrl) => {
   const token = localStorage.getItem("token");

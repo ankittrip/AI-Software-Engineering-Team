@@ -28,7 +28,7 @@ export const Login = () => {
   const handleDemoLogin = async () => {
     setLocalError('');
     setIsSubmitting(true);
-    setFormData({ email: 'demo@aiengine.dev', password: 'demo1234' });
+    setFormData({ email: 'at@gmail.com', password: '12345678' });
 
     const success = await login('demo@aiengine.dev', 'demo1234');
     if (success) {

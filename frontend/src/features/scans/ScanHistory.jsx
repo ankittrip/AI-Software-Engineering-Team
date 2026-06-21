@@ -60,13 +60,12 @@ export const ScanHistory = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-12">
-      {/* Header */}
+      
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-primary">
             Scan History
           </h1>
-
           <p className="text-sm text-muted mt-1">
             Review past AI codebase audits and security reports.
           </p>
@@ -80,9 +79,7 @@ export const ScanHistory = () => {
               type="text"
               placeholder="Search repositories..."
               value={searchTerm}
-              onChange={(e) =>
-                setSearchTerm(e.target.value)
-              }
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-surface border border-border rounded-lg pl-9 pr-4 py-2 text-sm text-primary placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
             />
           </div>
@@ -93,39 +90,23 @@ export const ScanHistory = () => {
         </div>
       </div>
 
-      {/* Loading */}
       {isLoading && (
         <div className="bg-surface border border-border rounded-xl p-10 text-center text-muted">
           Loading scan history...
         </div>
       )}
 
-      {/* Table */}
       {!isLoading && (
         <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-surfaceHover/50 text-muted text-xs uppercase tracking-wider border-b border-border">
                 <tr>
-                  <th className="px-6 py-4 font-medium">
-                    Repository
-                  </th>
-
-                  <th className="px-6 py-4 font-medium">
-                    Date
-                  </th>
-
-                  <th className="px-6 py-4 font-medium">
-                    Status
-                  </th>
-
-                  <th className="px-6 py-4 font-medium">
-                    Files Analyzed
-                  </th>
-
-                  <th className="px-6 py-4 font-medium text-right">
-                    Action
-                  </th>
+                  <th className="px-6 py-4 font-medium">Repository</th>
+                  <th className="px-6 py-4 font-medium">Date</th>
+                  <th className="px-6 py-4 font-medium">Status</th>
+                  <th className="px-6 py-4 font-medium">Files Analyzed</th>
+                  <th className="px-6 py-4 font-medium text-right">Action</th>
                 </tr>
               </thead>
 
@@ -140,28 +121,20 @@ export const ScanHistory = () => {
                         <div className="w-8 h-8 rounded-md bg-background border border-border flex items-center justify-center">
                           <Shield className="w-4 h-4 text-muted" />
                         </div>
-
                         <span className="font-mono text-primary">
-                          {(scan.repoUrl || "").replace(
-                            "https://github.com/",
-                            ""
-                          )}
+                          {(scan.repoUrl || "").replace("https://github.com/", "")}
                         </span>
                       </div>
                     </td>
 
                     <td className="px-6 py-4 text-muted">
                       {scan.createdAt
-                        ? new Date(
-                            scan.createdAt
-                          ).toLocaleDateString()
+                        ? new Date(scan.createdAt).toLocaleDateString()
                         : "-"}
                     </td>
 
                     <td className="px-6 py-4">
-                      <StatusBadge
-                        status={scan.status}
-                      />
+                      <StatusBadge status={scan.status} />
                     </td>
 
                     <td className="px-6 py-4 font-mono text-muted">
@@ -169,14 +142,12 @@ export const ScanHistory = () => {
                     </td>
 
                     <td className="px-6 py-4 text-right">
-                      {scan.status ===
-                        "COMPLETED" && (
+                      {scan.status === "COMPLETED" && (
                         <Link
                           to={`/scans/results/${scan.id}`}
                           className="inline-flex items-center gap-1 text-accent hover:text-accent/80 font-medium transition-colors"
                         >
                           View Report
-
                           <ChevronRight className="w-4 h-4 translate-y-[0.5px] group-hover:translate-x-1 transition-transform" />
                         </Link>
                       )}

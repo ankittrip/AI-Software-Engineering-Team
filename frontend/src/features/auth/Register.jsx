@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, User, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
-// 👇 NAYA: Zustand store import kiya
 import { useAuthStore } from '../../stores/useAuthStore.js';
 
 export const Register = () => {
@@ -10,7 +9,6 @@ export const Register = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const navigate = useNavigate();
-  // 👇 NAYA: Zustand store se login function nikala (auto-login ke liye)
   const { login } = useAuthStore();
 
   const handleSubmit = async (e) => {
@@ -20,18 +18,17 @@ export const Register = () => {
 
     try {
       const res = await fetch(
-  `${import.meta.env.VITE_API_URL}/auth/register`,
-  {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(formData),
-  }
-);
+        `${import.meta.env.VITE_API_URL}/auth/register`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        }
+      );
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.error || 'Registration failed');
 
-      // Auto login after successful register
       const loginSuccess = await login(formData.email, formData.password);
       if (loginSuccess) navigate('/');
     } catch (error) {

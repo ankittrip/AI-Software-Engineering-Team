@@ -4,33 +4,41 @@ export const fetchRepoContext = async (repoUrl) => {
   try {
     const [owner, repo] = repoUrl
       .replace("https://github.com/", "")
+      .replace(".git", "")
       .split("/");
 
     console.log(`[Extractor] Fetching repository data for ${owner}/${repo}...`);
 
-    // ==================================
-    // STEP 1: Repository Metadata
-    // ==================================
+    const token = process.env.GITHUB_TOKEN;
+    const apiConfig = {
+      headers: { 
+        Accept: "application/vnd.github+json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      }
+    };
+    
+    const rawConfig = {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      }
+    };
 
     const repoInfo = await axios.get(
       `https://api.github.com/repos/${owner}/${repo}`,
-      { headers: { Accept: "application/vnd.github+json" } }
+      apiConfig
     );
 
     const defaultBranch = repoInfo.data.default_branch || "main";
-
     console.log(`[Extractor] Default branch: ${defaultBranch}`);
-
-    // ==================================
-    // STEP 2: README + File Tree
-    // ==================================
 
     const [readmeRes, treeRes] = await Promise.allSettled([
       axios.get(
-        `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/README.md`
+        `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/README.md`,
+        rawConfig
       ),
       axios.get(
-        `https://api.github.com/repos/${owner}/${repo}/git/trees/${defaultBranch}?recursive=1`
+        `https://api.github.com/repos/${owner}/${repo}/git/trees/${defaultBranch}?recursive=1`,
+        apiConfig
       ),
     ]);
 
@@ -42,25 +50,18 @@ export const fetchRepoContext = async (repoUrl) => {
 
     console.log(`[Extractor] Total files discovered: ${fileTree.length}`);
 
-    // ==================================
-    // STEP 3: Find All package.json Files
-    // ==================================
-
     const packageJsonPaths = fileTree
       .filter((file) => file.type === "blob" && file.path.endsWith("package.json"))
       .map((file) => file.path);
 
     console.log(`[Extractor] package.json files found: ${packageJsonPaths.length}`);
 
-    // ==================================
-    // STEP 4: Fetch All package.json Files
-    // ==================================
-
     const packageFiles = await Promise.all(
       packageJsonPaths.map(async (packagePath) => {
         try {
           const response = await axios.get(
-            `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${packagePath}`
+            `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${packagePath}`,
+            rawConfig
           );
           return response.data;
         } catch {
@@ -68,10 +69,6 @@ export const fetchRepoContext = async (repoUrl) => {
         }
       })
     );
-
-    // ==================================
-    // STEP 5: Merge Dependencies
-    // ==================================
 
     const mergedPackageJson = { dependencies: {}, devDependencies: {} };
 
@@ -85,13 +82,11 @@ export const fetchRepoContext = async (repoUrl) => {
       `${Object.keys(mergedPackageJson.devDependencies).length} dev`
     );
 
-    // ==================================
-    // STEP 6: Important Files
-    // ==================================
-
     const importantKeywords = [
-      "controller", "route", "middleware", "service", "model",
-      "auth", "config", "page", "component", "hook", "context", "store",
+      "controller", "route", "middleware", "service", "model", "auth",
+      "config", "page", "component", "hook", "context", "store", "api",
+      "utils", "helper", "feature", "module", "screen", "view", "layout",
+      "lib", "core", "provider", "repository",
     ];
 
     const importantPaths = fileTree
@@ -109,22 +104,49 @@ export const fetchRepoContext = async (repoUrl) => {
           path.endsWith("tsconfig.json") ||
           path.endsWith("vite.config.js") ||
           path.endsWith("next.config.js") ||
-          path.endsWith(".env.example")
+          path.endsWith("dockerfile") ||
+          path.endsWith("docker-compose.yml") ||
+          path.endsWith(".env.example") ||
+          path.endsWith("readme.md")
         );
       })
+      .map((file) => {
+        const path = file.path.toLowerCase();
+
+        let score = 0;
+
+        if (path.includes("controller")) score += 10;
+        if (path.includes("route")) score += 10;
+        if (path.includes("service")) score += 10;
+        if (path.includes("model")) score += 10;
+        if (path.includes("middleware")) score += 10;
+
+        if (path.includes("auth")) score += 8;
+        if (path.includes("config")) score += 8;
+
+        if (path.endsWith("package.json")) score += 25;
+        if (path.endsWith("readme.md")) score += 25;
+
+        if (path.endsWith("server.js")) score += 20;
+        if (path.endsWith("app.js")) score += 20;
+        if (path.endsWith("index.js")) score += 15;
+
+        return { ...file, score };
+      })
+      .sort((a, b) => b.score - a.score)
       .slice(0, 30);
-
-    console.log(`[Extractor] Important paths selected: ${importantPaths.length}`);
-
-    // ==================================
-    // STEP 7: Fetch Important Files
-    // ==================================
+      
+    console.log(
+      "[Extractor] Selected files:",
+      importantPaths.map((f) => f.path)
+    );
 
     const importantFiles = await Promise.all(
       importantPaths.map(async (file) => {
         try {
           const response = await axios.get(
-            `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${file.path}`
+            `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${file.path}`,
+            rawConfig
           );
 
           return {
@@ -142,12 +164,7 @@ export const fetchRepoContext = async (repoUrl) => {
     );
 
     const filteredFiles = importantFiles.filter(Boolean);
-
     console.log(`[Extractor] Files sent to agents: ${filteredFiles.length}`);
-
-    // ==================================
-    // STEP 8: Return Context
-    // ==================================
 
     return {
       repoOwner: owner,
@@ -160,6 +177,6 @@ export const fetchRepoContext = async (repoUrl) => {
     };
   } catch (error) {
     console.error(`[Extractor] Failed to fetch repository data: ${error.message}`);
-    throw new Error("Failed to extract repository data");
+    throw new Error("Failed to extract repository data due to GitHub API error or invalid URL.");
   }
 };

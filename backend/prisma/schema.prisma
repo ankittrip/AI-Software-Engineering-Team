@@ -15,6 +15,8 @@ model User {
   role      String   @default("ENGINEER")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  
+  
   scans     Scan[]
 }
 
@@ -26,29 +28,53 @@ model Scan {
   defaultBranch       String?
   status              ScanStatus @default(PENDING)
   errorMessage        String?
+  
+ 
   totalFilesScanned   Int        @default(0)
   scanDurationMs      Int?
+  
+  
   overallScore        Int?
   riskLevel           RiskLevel?
   summary             String?
   strengths           Json?
   weaknesses          Json?
   recommendations     Json?
+  
+
   architectureMetrics Json?
   securityFindings    Json?
   codeReviewNotes     Json?
   performanceData     Json?
   dependencyData      Json?
   techStack           Json?
+  
+  
+  historicalSecurityContext     Json?
+  historicalArchitectureContext Json?  
+  historicalCodeReviewContext   Json?  
+  historicalPerformanceContext  Json?  
+  
+  securityComparison            Json?
+  scanComparison                Json?
+
+  
   userId              String?
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
-  user                User?      @relation(fields: [userId], references: [id])
+  
+
+  user                User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
 
   @@index([repoUrl])
   @@index([status])
   @@index([createdAt])
   @@index([riskLevel])
+  @@index([userId]) 
+  
+
+  @@index([repoUrl, status, createdAt(sort: Desc)])
 }
 
 enum ScanStatus {

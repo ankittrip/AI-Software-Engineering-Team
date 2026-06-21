@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { ArrowRight, ShieldCheck, Loader2, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useScanStore } from '../../stores/useScanStore';
-import { analyzeRepository } from "../../services/scanService";
 import { toast } from 'sonner'; 
 
 const GithubIcon = ({ className }) => (
@@ -24,9 +23,21 @@ export const NewScan = () => {
     initializeSocketListeners 
   } = useScanStore();
   
-useEffect(() => {
-  initializeSocketListeners();
-}, []);
+  useEffect(() => {
+    initializeSocketListeners();
+  }, [initializeSocketListeners]);
+
+  useEffect(() => {
+    if (!isScanning && scanProgressMessage === "Scan Complete! Report is ready.") {
+      toast.success("Scan Completed!", {
+        description: "Redirecting to your dashboard..."
+      });
+      
+      setTimeout(() => {
+        navigate('/'); 
+      }, 1500);
+    }
+  }, [isScanning, scanProgressMessage, navigate]);
 
   const handleStartScan = async (e) => {
     e.preventDefault();
@@ -43,22 +54,38 @@ useEffect(() => {
         description: `Initializing agents for ${url.replace("https://github.com/", "")}`,
       });
 
-      // 1. API Call: Ab yeh background job queue mein daalega aur turant Job ID dega
-      const response = await analyzeRepository(url);
+      const token = localStorage.getItem('token');
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
       
-      // Assume karte hain API { status: 'success', jobId: '123' } bhej rahi hai
-      const jobId = response?.jobId || response?.data?.jobId;
+      const response = await fetch(`${apiUrl}/scans/new`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          repoUrl: url,
+          skipCache: true 
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || "Failed to initialize scan.");
+      }
+
+      const jobId = data.jobId;
 
       if (!jobId) throw new Error("Failed to retrieve Job ID from backend.");
 
-      // 2. Zustand Store ko active karein aur Job ID bind karein
       startGlobalScan(url, jobId);
 
     } catch (error) {
-      console.error(error);
+      console.error("Scan initialization error:", error);
       completeGlobalScan();
       toast.error("Scan Failed", {
-        description: error?.response?.data?.message || error.message || "Something went wrong.",
+        description: error.message || "Something went wrong.",
       });
     }
   };
@@ -102,7 +129,6 @@ useEffect(() => {
           </form>
         </div>
       ) : (
-        // 📡 LIVE WEBSOCKET TERMINAL
         <div className="w-full max-w-2xl bg-surface border border-border rounded-2xl shadow-2xl p-10 flex flex-col items-center text-center animate-in fade-in zoom-in duration-500">
           <div className="relative mb-6">
             <div className="absolute inset-0 bg-accent/20 blur-xl rounded-full"></div>
@@ -118,7 +144,6 @@ useEffect(() => {
                <span className="text-xs font-semibold text-muted uppercase tracking-wider">Live Telemetry Feed</span>
              </div>
              
-             {/* Yahan aapke Worker ke updates WebSockets se direct aayenge */}
              <p className="font-mono text-accent text-sm animate-pulse flex items-center gap-3">
                <span className="text-emerald-500 font-bold">›</span> {scanProgressMessage}
              </p>

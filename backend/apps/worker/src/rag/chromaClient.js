@@ -1,0 +1,20 @@
+import { ChromaClient } from "chromadb";
+
+const client = new ChromaClient({
+  path: "http://127.0.0.1:8001",
+});
+
+const COLLECTION_NAME = "repo_memory";
+
+const dummyEmbeddingFunction = {
+  generate: async (texts) => {
+    return texts.map(() => [0]); 
+  }
+};
+
+export const getCollection = async () => {
+  return await client.getOrCreateCollection({
+    name: COLLECTION_NAME,
+    embeddingFunction: dummyEmbeddingFunction,
+  });
+};

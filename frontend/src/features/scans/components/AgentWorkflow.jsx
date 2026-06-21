@@ -32,7 +32,6 @@ export const AgentWorkflow = ({ workflow }) => {
         Live Agent Execution
       </h3>
       <div className="relative space-y-6">
-        {/* Connecting Line */}
         <div className="absolute left-2.5 top-3 bottom-3 w-[1px] bg-border z-0" />
 
         {agents.map((agent, index) => {

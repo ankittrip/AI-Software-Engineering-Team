@@ -15,6 +15,12 @@ import { runDependencyAgent } from "./src/agents/dependencyAgent.js";
 import { runOrchestrator } from "./src/agents/orchestrator.js";
 import { redis } from "../../packages/redis/index.js";
 
+import { storeAgentFindings } from "./src/rag/storeAgentFindings.js";
+import { getHistoricalSecurityContext } from "./src/rag/getHistoricalSecurityContext.js";
+import { compareFindings } from "./src/rag/compareFindings.js";
+import { getPreviousScan } from "./src/rag/getPreviousScan.js";
+import { compareScans } from "./src/rag/compareScans.js";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -25,10 +31,8 @@ dotenv.config({
 const connection = new Redis({
   host: process.env.REDIS_HOST,
   port: Number(process.env.REDIS_PORT),
-
   username: process.env.REDIS_USERNAME,
   password: process.env.REDIS_PASSWORD,
-
   maxRetriesPerRequest: null,
 });
 
@@ -39,6 +43,8 @@ const scanWorker = new Worker(
   async (job) => {
     console.log(`[Worker] Processing job ID: ${job.id}`);
     const scanStart = Date.now();
+    
+    const skipCache = job.data.skipCache || false;
 
     try {
       await job.updateProgress("Cloning repository and extracting structure...");
@@ -48,71 +54,67 @@ const scanWorker = new Worker(
         .replace(".git", "");
       const [repoOwner, repoName] = repoPath.split("/");
 
-      // ==========================================
-      // REDIS CACHE CHECK
-      // ==========================================
-
       const cacheKey =
         "scan:v4:" +
         crypto.createHash("sha256").update(job.data.repoUrl).digest("hex");
 
       const cachedReportString = await redis.get(cacheKey);
 
-      if (cachedReportString) {
+      if (cachedReportString && !skipCache) {
         console.log("[Cache] Cache hit — skipping AI analysis");
         await job.updateProgress("Cached report found. Skipping AI analysis...");
 
-        // Upstash client auto-parses JSON on get — no manual JSON.parse needed
-        const report = cachedReportString;
+        const report = typeof cachedReportString === 'string' ? JSON.parse(cachedReportString) : cachedReportString;
 
         const savedScan = await prisma.scan.create({
           data: {
             repoUrl: job.data.repoUrl,
             status: "COMPLETED",
-
             ...(job.data.userId && {
               user: { connect: { id: job.data.userId } },
             }),
-
             repoOwner: report.repoOwner || null,
             repoName: report.repoName || null,
             defaultBranch: report.defaultBranch || null,
             totalFilesScanned: report.totalFilesScanned || 0,
-
             overallScore: report.overallScore,
             riskLevel: report.riskLevel,
             summary: report.summary,
             strengths: report.strengths || [],
             weaknesses: report.weaknesses || [],
             recommendations: report.recommendations || [],
-
             architectureMetrics: report.architectureMetrics || null,
             securityFindings: report.securityFindings || null,
             codeReviewNotes: report.codeReviewNotes || null,
             performanceData: report.performanceData || null,
             dependencyData: report.dependencyData || null,
             techStack: report.techStack || [],
+            
+            historicalSecurityContext: report.historicalSecurityContext || null,
+            historicalArchitectureContext: report.historicalArchitectureContext || null, 
+            historicalCodeReviewContext: report.historicalCodeReviewContext || null,
+            historicalPerformanceContext: report.historicalPerformanceContext || null,
+            
+            securityComparison: report.securityComparison || null,
+            scanComparison: report.scanComparison || null,
           },
         });
-
         console.log(`[DB] Cached scan saved: ${savedScan.id}`);
         await job.updateProgress("Scan fully completed!");
 
         return { status: "cache_hit", report, scanId: savedScan.id };
       }
 
-      console.log("[Cache] Cache miss — running full AI analysis");
-
-      // ==========================================
-      // AI ANALYSIS EXECUTION
-      // ==========================================
+      if (skipCache) {
+        console.log("[Cache] Cache bypassed due to skipCache flag.");
+      }
 
       const repoContext = await fetchRepoContext(job.data.repoUrl);
+      repoContext.repoUrl = job.data.repoUrl;
 
       await job.updateProgress("Analyzing codebase with 5 parallel AI agents...");
       console.log("[Worker] Dispatching 5 agents in parallel...");
 
-      // Wraps an agent promise with a hard timeout to prevent stalled jobs
       const withTimeout = (promise, ms, agentName) => {
         let timer;
         const timeoutPromise = new Promise((_, reject) => {
@@ -160,16 +162,39 @@ const scanWorker = new Worker(
         (r) => (r.status === "fulfilled" ? r.value : null)
       );
 
+      let historicalSecurityContext = [];
+      if (secData?.criticalThreats?.length) {
+        historicalSecurityContext = await getHistoricalSecurityContext(secData.criticalThreats);
+      }
+
+      const previousScan = await getPreviousScan(job.data.repoUrl);
+      let scanComparison = { improved: [], introduced: [], unchanged: [] };
+
+      if (previousScan?.securityFindings?.criticalThreats?.length) {
+        scanComparison = compareScans(
+          secData?.criticalThreats || [],
+          previousScan.securityFindings.criticalThreats || []
+        );
+      }
+
+      let securityComparison = { recurringFindings: [], newFindings: [], resolvedFindings: [] };
+
+      if (secData?.criticalThreats?.length && historicalSecurityContext.length) {
+        securityComparison = compareFindings(
+          secData.criticalThreats,
+          historicalSecurityContext
+        );
+      }
+
       const failedAgents = results
         .map((result, index) => (result.status === "rejected" ? agentNames[index] : null))
         .filter(Boolean);
 
-      if (failedAgents.length > 0) {
-        console.warn(`[Worker] Agents failed: ${failedAgents.join(", ")}`);
-      }
-
       await job.updateProgress("Agents finished. Orchestrator is synthesizing final report...");
-      console.log("[Orchestrator] Synthesizing agent outputs into final report...");
+      
+      const historicalArchitectureContext = archData?.historicalContext || archData?.historicalArchitectureContext || [];
+      const historicalCodeReviewContext = reviewData?.historicalContext || reviewData?.historicalCodeReviewContext || [];
+      const historicalPerformanceContext = perfData?.historicalContext || perfData?.historicalPerformanceContext || [];
 
       const finalReport = await runOrchestrator({
         architecture: archData || {},
@@ -177,13 +202,28 @@ const scanWorker = new Worker(
         codeReview: reviewData || {},
         performance: perfData || {},
         dependencies: depData || {},
+        
+        historicalSecurityContext, 
+        
+        historicalArchitectureContext, 
+        historicalCodeReviewContext,
+        historicalPerformanceContext,
+
+        securityComparison,
+        scanComparison,
       });
 
-      // ==========================================
-      // CACHING & DATABASE SAVING
-      // ==========================================
+      console.log("================ DIAGNOSTIC CHECK ================");
+      console.log("1. RAG Variable Check (Worker Side):");
+      console.log("   historicalArchitectureContext (Worker):", historicalArchitectureContext ? "YES data/array" : "NULL/UNDEFINED");
+      
+      console.log("2. Orchestrator Return Check:");
+      console.log("   historicalArchitectureContext (Orchestrator):", finalReport.historicalArchitectureContext ? "YES data/array" : "NULL/UNDEFINED");
+      
+      console.log("3. Passing to Prisma:");
+      console.log("   Value being sent to DB:", finalReport.historicalArchitectureContext || historicalArchitectureContext || null);
+      console.log("==================================================");
 
-      // Cache full report including agent data for complete cache hit restores
       const cachePayload = {
         ...finalReport,
         repoOwner,
@@ -196,14 +236,13 @@ const scanWorker = new Worker(
         performanceData: perfData,
         dependencyData: depData,
         techStack: archData?.techStack || [],
+        historicalSecurityContext,
+        securityComparison,
+        scanComparison,
       };
 
-      // Upstash auto-serializes objects; set 7-day expiry (604800s)
-      await redis.set(cacheKey, cachePayload, { ex: 60 * 60 * 24 * 7 });
-      console.log("[Cache] Report cached in Redis");
-
-      console.log(`[Worker] Final score: ${finalReport.overallScore}, risk: ${finalReport.riskLevel}`);
-
+      await redis.set(cacheKey, JSON.stringify(cachePayload), { ex: 60 * 60 * 24 * 7 });
+      
       const scanDurationMs = Date.now() - scanStart;
       await job.updateProgress("Saving results to database...");
 
@@ -216,11 +255,9 @@ const scanWorker = new Worker(
           status: "COMPLETED",
           totalFilesScanned: repoContext.fileCount || 0,
           scanDurationMs,
-
           ...(job.data.userId && {
             user: { connect: { id: job.data.userId } },
           }),
-
           overallScore: finalReport.overallScore,
           riskLevel: finalReport.riskLevel,
           summary: finalReport.summary,
@@ -233,10 +270,68 @@ const scanWorker = new Worker(
           performanceData: perfData,
           dependencyData: depData,
           techStack: archData?.techStack || [],
+          historicalSecurityContext,
+          historicalArchitectureContext,
+          historicalCodeReviewContext,
+          historicalPerformanceContext,
+          securityComparison,
+          scanComparison,
         },
       });
 
-      console.log(`[DB] Scan saved with ID: ${savedScan.id}`);
+      if (secData) {
+        await storeAgentFindings({
+          repoUrl: job.data.repoUrl,
+          scanId: savedScan.id,
+          agent: "security",
+          severity: "high",
+          findings: [
+            ...(secData.criticalThreats || []),
+            ...(secData.minorWarnings || []),
+            ...(secData.securityObservations || []),
+          ],
+        });
+      }
+
+      if (reviewData) {
+        await storeAgentFindings({
+          repoUrl: job.data.repoUrl,
+          scanId: savedScan.id,
+          agent: "code-review",
+          severity: "medium",
+          findings: [
+            ...(reviewData.codeSmells || []).map(s => s.finding),
+            ...(reviewData.refactoringSuggestions || []).map(s => s.action),
+          ],
+        });
+      }
+
+      if (perfData) {
+        await storeAgentFindings({
+          repoUrl: job.data.repoUrl,
+          scanId: savedScan.id,
+          agent: "performance",
+          severity: "medium",
+          findings: [
+            ...(perfData.bottlenecks || []).map(b => typeof b === "string" ? b : b.issue || JSON.stringify(b)),
+            ...(perfData.optimizationOpportunities || []).map(o => typeof o === "string" ? o : o.suggestion || JSON.stringify(o)),
+          ],
+        });
+      }
+
+      if (archData) {
+        await storeAgentFindings({
+          repoUrl: job.data.repoUrl,
+          scanId: savedScan.id,
+          agent: "architecture",
+          severity: "low",
+          findings: [
+            ...(archData.risks || []).map(r => typeof r === "string" ? r : r.description || JSON.stringify(r)),
+            ...(archData.architecturalObservations || []).map(o => typeof o === "string" ? o : o.observation || JSON.stringify(o)),
+          ],
+        });
+      }
+
       await job.updateProgress("Scan fully completed!");
 
       return {
@@ -246,7 +341,7 @@ const scanWorker = new Worker(
         scanId: savedScan.id,
       };
     } catch (error) {
-      console.error(`[Worker] Job failed: ${error.message}`);
+      console.error(error);
       await job.updateProgress(`Error: ${error.message}`);
 
       try {
@@ -269,15 +364,11 @@ const scanWorker = new Worker(
   },
   {
     connection,
-    lockDuration: 120000,
+    lockDuration: 300000,
     maxStalledCount: 2,
     concurrency: 1,
   }
 );
-
-// ==========================================
-// WORKER EVENT LISTENERS
-// ==========================================
 
 scanWorker.on("completed", (job) => {
   console.log(`[Worker] Job ${job.id} completed successfully`);

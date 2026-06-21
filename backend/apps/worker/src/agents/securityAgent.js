@@ -1,6 +1,5 @@
 import OpenAI from "openai";
 
-// Instantiated at module level to reuse the connection across calls
 const openai = new OpenAI({
   baseURL: "https://models.inference.ai.azure.com",
   apiKey: process.env.GITHUB_TOKEN,
@@ -23,14 +22,12 @@ export const runSecurityAgent = async (repoContext) => {
 
     let securityScore = 100;
 
-    // =====================================
-    // Rule-Based Checks
-    // =====================================
-
     const hasHelmet = !!dependencies.helmet;
     const hasRateLimit = !!dependencies["express-rate-limit"];
     const hasCors = !!dependencies.cors;
     const hasJWT = !!dependencies.jsonwebtoken;
+    
+    const hasHashing = !!(dependencies.bcrypt || dependencies.bcryptjs || dependencies.crypto || dependencies.argon2);
 
     if (!hasHelmet && dependencies.express) {
       minorWarnings.push("Helmet middleware not detected.");
@@ -53,14 +50,17 @@ export const runSecurityAgent = async (repoContext) => {
       );
     }
 
-    // Scan file contents for hardcoded secrets or sensitive patterns
+    if (hasHashing) {
+      securityScore = Math.min(100, securityScore + 5);
+    } else {
+      minorWarnings.push("No standard cryptographic hashing library (crypto/bcrypt) detected.");
+      securityScore -= 5;
+    }
+
     const secretPatterns = [
-      /mongodb\+srv:\/\//i,
-      /api[_-]?key/i,
-      /secret/i,
-      /token/i,
-      /password/i,
-      /private[_-]?key/i,
+      /mongodb\+srv:\/\/[^:]+:[^@]+@/i,
+      /(?:api[_-]?key|secret|token|password)\s*[:=]\s*['"][a-zA-Z0-9-_]{8,}['"]/i,
+      /private[_-]?key\s*[:=]\s*['"].+['"]/i,
     ];
 
     for (const file of files) {
@@ -68,46 +68,41 @@ export const runSecurityAgent = async (repoContext) => {
       const foundSecret = secretPatterns.some((pattern) => pattern.test(content));
 
       if (foundSecret) {
-        criticalThreats.push(`Potential secret exposure detected in ${file.path}`);
+        criticalThreats.push(`Potential hardcoded secret exposure detected in ${file.path}`);
         securityScore -= 20;
       }
     }
 
     securityScore = Math.max(0, Math.min(100, securityScore));
 
-    // =====================================
-    // AI Insights
-    // =====================================
+    const fileContentsContext = files
+      .slice(0, 10)
+      .map(f => `--- File: ${f.path} ---\n${f.content.substring(0, 800)}`)
+      .join("\n\n");
 
     const prompt = `
 You are a Senior Security Architect.
 
 Detected Security Facts:
+Security Score: ${securityScore}
+Critical Threats: ${JSON.stringify(criticalThreats)}
+Warnings: ${JSON.stringify(minorWarnings)}
 
-Security Score:
-${securityScore}
-
-Critical Threats:
-${JSON.stringify(criticalThreats, null, 2)}
-
-Warnings:
-${JSON.stringify(minorWarnings, null, 2)}
-
-Repository Files:
-
-${files.slice(0, 15).map((f) => f.path).join("\n")}
+Key Repository File Snippets:
+${fileContentsContext}
 
 Generate ONLY JSON:
-
 {
   "securityObservations": [],
-  "additionalRecommendations": []
+  "additionalRecommendations": [],
+  "aiDetectedThreats": []
 }
 
 Rules:
-- No guessing
-- Evidence-based only
-- JSON only
+- Identify logical vulnerabilities (e.g., SQL Injection, XSS, broken access control) in the provided code snippets.
+- Populate "aiDetectedThreats" if you find severe vulnerabilities in the code.
+- No guessing. Evidence-based only.
+- Output pure JSON only.
 `;
 
     const response = await openai.chat.completions.create({
@@ -123,11 +118,18 @@ Rules:
       temperature: 0.1,
     });
 
-    const aiResult = JSON.parse(response.choices[0].message.content);
+    const rawContent = response.choices[0].message.content;
+    let aiResult = { securityObservations: [], additionalRecommendations: [], aiDetectedThreats: [] };
+    
+    try {
+      aiResult = JSON.parse(rawContent);
+    } catch (e) {
+      console.error("[Security Agent] Failed to parse LLM JSON:", e);
+    }
 
     return {
       securityScore,
-      criticalThreats,
+      criticalThreats: [...criticalThreats, ...(aiResult.aiDetectedThreats || [])],
       minorWarnings,
       securityRecommendations: [
         ...securityRecommendations,
@@ -140,9 +142,9 @@ Rules:
 
     return {
       securityScore: 0,
-      criticalThreats: [],
+      criticalThreats: [`Agent execution failed: ${error.message}`],
       minorWarnings: [],
-      securityRecommendations: [error.message],
+      securityRecommendations: ["Review logs for agent failure details."],
       securityObservations: [],
     };
   }

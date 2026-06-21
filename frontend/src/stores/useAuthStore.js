@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 
 export const useAuthStore = create((set) => ({
-  // Persist auth state across page refreshes via localStorage
   user: JSON.parse(localStorage.getItem('user')) || null,
   token: localStorage.getItem('token') || null,
   isAuthenticated: !!localStorage.getItem('token'),
@@ -12,13 +11,13 @@ export const useAuthStore = create((set) => ({
     set({ isLoading: true, error: null });
     try {
       const res = await fetch(
-  `${import.meta.env.VITE_API_URL}/auth/login`,
-  {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  }
-);
+        `${import.meta.env.VITE_API_URL}/auth/login`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        }
+      );
 
       const data = await res.json();
 
