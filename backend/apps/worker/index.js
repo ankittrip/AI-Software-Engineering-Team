@@ -378,9 +378,9 @@ scanWorker.on("failed", (job, err) => {
   console.error(`[Worker] Job ${job?.id} failed: ${err.message}`);
 });
 
-scanWorker.on("ready", () => {
-  console.log("[Worker] Ready to process jobs");
-});
+// scanWorker.on("ready", () => {
+//   console.log("[Worker] Ready to process jobs");
+// });
 
 scanWorker.on("active", (job) => {
   console.log(`[Worker] Job ${job.id} is now active`);
