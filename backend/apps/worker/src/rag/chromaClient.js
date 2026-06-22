@@ -1,7 +1,8 @@
 import { ChromaClient } from "chromadb";
 
+
 const client = new ChromaClient({
-  path: "http://127.0.0.1:8001",
+  path: process.env.CHROMA_URL || "http://127.0.0.1:8001",
 });
 
 const COLLECTION_NAME = "repo_memory";
