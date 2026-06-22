@@ -2,6 +2,7 @@ import { ChromaClient } from "chromadb";
 
 console.log(" [DEBUG] USING DIRECT CHROMA DB LINK");
 
+<<<<<<< HEAD
 
 
 
@@ -9,6 +10,11 @@ const client = new ChromaClient({
   host: "my-chromadb-server.onrender.com",
   port: 443,
   ssl: true,
+=======
+
+const client = new ChromaClient({
+  path: "https://my-chromadb-server.onrender.com",
+>>>>>>> 784504c (fix: clean git conflict markers in chromaClient)
 });
 
 try {
