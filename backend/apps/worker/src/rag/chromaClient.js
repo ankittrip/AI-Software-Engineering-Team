@@ -1,9 +1,10 @@
 import { ChromaClient } from "chromadb";
 
+console.log(" [DEBUG] USING DIRECT CHROMA DB LINK");
 
-console.log("[DEBUG] CHROMA DB URL IS SET TO:", process.env.CHROMA_URL);
+
 const client = new ChromaClient({
-  path: https: my-chromadb-server.onrender.com || "http://127.0.0.1:8001",
+  path: "https://my-chromadb-server.onrender.com",
 });
 
 const COLLECTION_NAME = "repo_memory";
