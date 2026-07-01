@@ -334,7 +334,7 @@ npm run dev
 
 # 📹 Demo
 
-Coming Soon
+https://www.loom.com/share/fa38986215b84c61a82d1f7e66a601b5
 
 ---
 
