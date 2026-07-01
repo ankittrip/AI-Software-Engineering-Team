@@ -1,7 +1,7 @@
 import { getCollection } from "./chromaClient.js";
 import { generateEmbedding } from "./embeddingService.js";
 
-const MAX_DISTANCE = 0.7; 
+const MAX_DISTANCE = 1.3; 
 
 export const retrieveSimilarFindings = async (
   query,
