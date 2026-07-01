@@ -66,6 +66,9 @@ const scanWorker = new Worker(
 
         const report = typeof cachedReportString === 'string' ? JSON.parse(cachedReportString) : cachedReportString;
 
+console.log("Architecture Context:", report.historicalArchitectureContext);
+console.log("Performance Context:", report.historicalPerformanceContext);
+
         const savedScan = await prisma.scan.create({
           data: {
             repoUrl: job.data.repoUrl,
