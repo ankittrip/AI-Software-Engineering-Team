@@ -53,6 +53,19 @@ The system also includes **persistent Retrieval-Augmented Generation (RAG)** usi
 
 ---
 
+## Backend Engineering Highlights
+
+- Modular Node.js + Express architecture
+- Background job processing using BullMQ + Redis
+- Queue retry strategy and worker isolation
+- PostgreSQL with Prisma ORM
+- WebSocket communication using Socket.IO
+- JWT Authentication
+- RESTful API design
+- Persistent vector storage with ChromaDB
+- Event-driven architecture
+- Production deployment across Render, Railway and Vercel
+
 # 🧠 AI Agent System
 
 The platform uses five specialized AI agents running simultaneously.
